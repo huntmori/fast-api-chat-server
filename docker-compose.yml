@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  mariadb:
+    image: mariadb:11.6
+    container_name: fastapi_mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: fastapi_db
+      MYSQL_USER: fastapi_user
+      MYSQL_PASSWORD: fastapi_password
+    ports:
+      - "3307:3306"
+    command:
+      - --bind-address=0.0.0.0
+      - --port=3306
+      - --skip-name-resolve
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mariadb_data:
+  fastapi_network:
+    driver: bridge

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Client - Multi Connection Test (Vue 3)</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .control-group input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .control-group button {
+            padding: 10px 20px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .control-group button:hover {
+            transform: translateY(-2px);
+        }
+
+        .control-group button.danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+
+        .clients-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .client {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+
+        .client-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px 10px 0 0;
+            position: relative;
+        }
+
+        .client-header h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .client-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+        }
+
+        .status-indicator.connected {
+            background: #44ff44;
+        }
+
+        .client-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f5f5f5;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 8px;
+            font-size: 13px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.system {
+            background: #e3f2fd;
+            color: #1976d2;
+            font-style: italic;
+        }
+
+        .message.sent {
+            background: #667eea;
+            color: white;
+            margin-left: 15%;
+        }
+
+        .message.received {
+            background: #e8eaf6;
+            margin-right: 15%;
+        }
+
+        .message-time {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 3px;
+        }
+
+        .input-area {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .input-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-controls input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .input-controls input:focus {
+            border-color: #667eea;
+        }
+
+        .input-controls button {
+            padding: 10px 20px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .input-controls button:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .input-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .clients-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 헤더 입력 영역 스타일 */
+        .headers-section {
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .headers-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 5px 0;
+            color: #667eea;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .headers-toggle:hover {
+            color: #764ba2;
+        }
+
+        .headers-list {
+            margin-top: 10px;
+        }
+
+        .header-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .header-row input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .header-row input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .header-row button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .header-row button.add-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .header-row button.add-btn:hover {
+            background: #764ba2;
+        }
+
+        .header-row button.remove-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .header-row button.remove-btn:hover {
+            background: #ee5a6f;
+        }
+
+        .headers-note {
+            font-size: 11px;
+            color: #888;
+            margin-top: 8px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <h1>🚀 WebSocket Multi-Client Tester (Vue 3)</h1>
+        <p>여러 WebSocket 연결을 동시에 테스트할 수 있습니다</p>
+    </div>
+
+    <div class="controls">
+        <h2>연결 관리</h2>
+        <div class="control-group">
+            <input
+                    type="text"
+                    v-model="serverUrl"
+                    placeholder="서버 URL"
+            >
+            <input
+                    type="number"
+                    v-model.number="clientCount"
+                    placeholder="클라이언트 수"
+                    min="1"
+                    max="10"
+            >
+            <button @click="createClients">클라이언트 생성</button>
+            <button @click="connectAll">모두 연결</button>
+            <button class="danger" @click="disconnectAll">모두 연결 해제</button>
+            <button class="danger" @click="removeAllClients">모두 제거</button>
+        </div>
+    </div>
+
+    <div class="clients-container">
+        <div v-for="client in clients" :key="client.id" class="client">
+            <div class="client-header">
+                <h3>클라이언트 #{{ client.id }}</h3>
+                <div class="client-status">
+                        <span
+                                class="status-indicator"
+                                :class="{ connected: client.connected }"
+                        ></span>
+                    <span>{{ client.connected ? '연결됨' : '연결 끊김' }}</span>
+                </div>
+                <div class="client-stats">
+                    <span>📨 전송: <strong>{{ client.sentCount }}</strong></span>
+                    <span>📬 수신: <strong>{{ client.receivedCount }}</strong></span>
+                </div>
+                <button class="close-btn" @click="removeClient(client.id)">×</button>
+            </div>
+
+            <!-- 헤더 입력 섹션 -->
+            <div class="headers-section">
+                <div class="headers-toggle" @click="toggleHeaders(client)">
+                    <span>📋 커스텀 헤더 설정</span>
+                    <span>{{ client.showHeaders ? '▲' : '▼' }}</span>
+                </div>
+                <div v-if="client.showHeaders" class="headers-list">
+                    <div style="margin-bottom:8px; display:flex; gap:8px; align-items:center;">
+                        <label style="font-size:12px; color:#555; min-width:110px;">전송 방식</label>
+                        <select v-model="client.headerTransport" :disabled="client.connected" style="padding:6px; font-size:12px;">
+                            <option value="query">쿼리파라미터 (wsheaders)</option>
+                            <option value="protocol">서브프로토콜 (Sec-WebSocket-Protocol)</option>
+                            <option value="initmsg">초기 메시지 (onopen 시 전송)</option>
+                        </select>
+                    </div>
+
+                    <div v-for="(header, index) in client.headers" :key="index" class="header-row">
+                        <input
+                            type="text"
+                            v-model="header.key"
+                            placeholder="헤더 이름 (예: Authorization)"
+                            :disabled="client.connected"
+                        >
+                        <input
+                            type="text"
+                            v-model="header.value"
+                            placeholder="헤더 값 (예: Bearer token...)"
+                            :disabled="client.connected"
+                        >
+                        <button
+                            class="remove-btn"
+                            @click="removeHeader(client, index)"
+                            :disabled="client.connected || client.headers.length <= 1"
+                        >✕</button>
+                    </div>
+                    <div class="header-row">
+                        <button
+                            class="add-btn"
+                            @click="addHeader(client)"
+                            :disabled="client.connected"
+                        >+ 헤더 추가</button>
+                    </div>
+                    <div class="headers-note">
+                        ⚠️ 브라우저 WebSocket은 직접 HTTP 헤더를 설정할 수 없습니다. 아래 방법 중 하나로 서버에 헤더 정보를 전달하세요.
+                        <ul style="margin-top:6px; font-size:11px;">
+                            <li>쿼리: wsheaders 쿼리 파라미터에 Base64(JSON)로 전달 — 서버에서 디코드 필요</li>
+                            <li>서브프로토콜: Sec-WebSocket-Protocol에 Base64(JSON) 문자열 전달 — 서버에서 확인 가능</li>
+                            <li>초기 메시지: 연결 후 첫 메시지로 JSON 헤더를 전송 — 서버에서 첫 메시지로 처리</li>
+                        </ul>
+                        서버가 어떤 방식을 지원하는지 확인한 뒤 선택하세요.
+                    </div>
+                </div>
+            </div>
+
+            <div class="messages" :ref="el => setMessagesRef(el, client.id)">
+                <div
+                        v-for="(message, index) in client.messages"
+                        :key="index"
+                        class="message"
+                        :class="message.type"
+                >
+                    <div style="word-wrap: break-word;">{{ message.content }}</div>
+                    <div class="message-time">{{ message.time }}</div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-controls">
+                    <button
+                            @click="connect(client)"
+                            :disabled="client.connected"
+                    >
+                        연결
+                    </button>
+                    <button
+                            @click="disconnect(client)"
+                            :disabled="!client.connected"
+                    >
+                        연결 해제
+                    </button>
+                    <input
+                            type="text"
+                            v-model="client.inputMessage"
+                            placeholder="메시지 입력..."
+                            :disabled="!client.connected"
+                            @keypress.enter="sendMessage(client)"
+                    >
+                    <button
+                            @click="sendMessage(client)"
+                            :disabled="!client.connected"
+                    >
+                        전송
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
+
