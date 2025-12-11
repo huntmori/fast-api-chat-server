@@ -27,12 +27,24 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
             data = json.loads(text)
 
             type: str = data.get("type")
-
+            payload = data.get("payload")
             logger.info(f"Received message of type {type}")
 
             if type == "ws_headers":
-                logger.info(f"Received headers: {data}")
-                await manager.logIn(websocket, data.get('headers').get('access_token'), db)
+                await manager.logIn(websocket, payload.get('access_token'), db)
+            elif type == "room.create":
+                await manager.room_create(websocket, data, db)
+                pass
+            elif type == "room.join":
+                pass
+            elif type == "room.leave":
+                pass
+            elif type == "room.chat":
+                pass
+            elif type == "room.list":
+                pass
+            elif type == "room.delete":
+                pass
             else:
                 await manager.send_personal_message(text,websocket)
     except WebSocketDisconnect:

@@ -36,31 +36,27 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_text(message)
 
+    @staticmethod
+    async def send_error(websocket: WebSocket, error: str):
+        logger.error(error)
+        await websocket.send_text(json.dumps(BaseResponse.error(error)))
+
+    @staticmethod
+    async def send_success(websocket: WebSocket, data):
+        await websocket.send_text(json.dumps(BaseResponse.success("", data)))
+
     async def logIn(self, websocket: WebSocket, token: Optional[str], db: Session):
-        """
-        websocket에서 호출할 때 DB 의존성 주입이 되지 않으므로 get_db() 제너레이터를 직접 사용합니다.
-        token: 암호화된(전송된) 토큰 문자열
-        """
         logger.info(f"logIn : token ={token}")
 
         if not token:
-            await websocket.send_text(
-                json.dumps(
-                    BaseResponse.error("Invalid token")
-                )
-            )
+            await self.send_error(websocket, "No token provided")
             return
 
         # 토큰 복호화 및 사용자명 추출
         try:
             decoded = decode_access_token(token)
         except Exception as e:
-            logger.exception("token decode failed")
-            await websocket.send_text(
-                json.dumps(
-                    BaseResponse.error("Invalid token")
-                )
-            )
+            await self.send_error(websocket, "Invalid token")
             return
 
         # decode_access_token이 문자열(예: username) 또는 dict(payload)를 반환할 수 있으므로 안전하게 처리
@@ -76,33 +72,19 @@ class ConnectionManager:
         logger.info(f"user_name : {user_name}")
 
         if not user_name:
-            await websocket.send_text(
-                json.dumps(
-                    BaseResponse.error("Invalid token payload")
-                )
-            )
+            await self.send_error(websocket, "Invalid token payload")
             return
 
         try:
             user = db.query(User).filter(User.username == user_name).first()
             if not user:
-                logger.error("Invalid token or user not found")
-                await websocket.send_text(
-                    json.dumps(
-                        BaseResponse.error("Invalid token or user not found")
-                    )
-                )
+                await self.send_error(websocket, "Invalid token or user not found")
                 return
 
             # 안전한 사용자 식별자 추출 (uid, id, username 순)
             uid = getattr(user, "uid", None)
             if uid is None:
-                logger.error("User has no usable identifier")
-                await websocket.send_text(
-                    json.dumps(
-                        BaseResponse.error("User has no usable identifier")
-                    )
-                )
+                await self.send_error(websocket, "user has no usable identifier")
                 return
 
             # 로그인 연결 저장
@@ -115,21 +97,26 @@ class ConnectionManager:
                 "email": getattr(user, "email", None),
                 # 필요한 추가 필드만 담음
             }
-            await websocket.send_text(
-                json.dumps(
-                    BaseResponse.success("", user_info)
-                )
-            )
+            await self.send_success(websocket, user_info)
         except Exception as e:
-            logger.exception("Error during logIn process")
-            await websocket.send_text(
-                json.dumps(
-                    BaseResponse.error("Internal server error during logIn")
-                )
-            )
+            logger.exception(e)
+            await self.send_error(websocket, "Internal server error during logIn")
+            return
+
+    def get_user_uid_by_websockets(self, websocket: WebSocket) -> str:
+        uid = next(
+            (k for k,v in self.log_in_connections.items() if v == websocket), None
+        )
+        logger.info(f"test : uid = {uid}")
+        return uid
+
+
 
     def set_user_socket(self, uid, websocket):
         self.log_in_connections[uid] = websocket
         logger.info(f"setUserSocket : uid = {uid}")
         logger.info(f"connections : {self.log_in_connections}")
+        pass
+
+    async def room_create(self, websocket: WebSocket, data, db: Session):
         pass

@@ -195,7 +195,11 @@ createApp({
                         });
                         if (Object.keys(obj).length > 0) {
                             try {
-                                const initMsg = JSON.stringify({ type: 'ws_headers', headers: obj });
+                                const initMsg = JSON.stringify(
+                                    {
+                                            type: 'ws_headers',
+                                            payload: obj
+                                        });
                                 client.ws.send(initMsg);
                                 addMessage(client, '📤 초기 헤더 메시지를 전송했습니다.', 'system');
                             } catch (err) {
