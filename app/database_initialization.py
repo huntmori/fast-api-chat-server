@@ -10,7 +10,7 @@ from app.models import User
 
 def init_db():
     print(f"Database URL: {engine.url}")
-    print("Creating database tables based on models...")
+    print("Creating database tables based on entities...")
     try:
         # 여기에 정의된 모든 모델을 기반으로 테이블을 생성합니다.
         Base.metadata.create_all(bind=engine)

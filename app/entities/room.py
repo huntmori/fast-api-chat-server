@@ -29,8 +29,9 @@ class Room(Base):
         String(255), unique=True, default=lambda: str(uuid.uuid4())
     )
 
-    from_type = Column(String(255), nullable=False)
-    from_uid = Column(String(255), nullable=False)
+    from_type = Column(String(255), nullable=True)
+    from_uid = Column(String(255), nullable=True)
+    max_users = Column(Integer, nullable=False)
 
     type = Column(
         SQLEnum(RoomType, name="room_type", native_enum=False),

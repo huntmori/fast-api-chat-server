@@ -1,13 +1,10 @@
 import json
+import logging
 
-from fastapi import FastAPI, WebSocket, APIRouter
+from fastapi import WebSocket, APIRouter
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from starlette.websockets import WebSocketDisconnect
-
-import logging
-
-from app import dtos
 
 from app.Classes.ConnectionManager import ConnectionManager
 from app.database import get_db
@@ -31,7 +28,7 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
             logger.info(f"Received message of type {type}")
 
             if type == "ws_headers":
-                await manager.logIn(websocket, payload.get('access_token'), db)
+                await manager.login(websocket, payload.get('access_token'), db)
             elif type == "room.create":
                 await manager.room_create(websocket, data, db)
                 pass
